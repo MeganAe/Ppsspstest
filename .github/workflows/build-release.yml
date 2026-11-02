@@ -13,11 +13,12 @@ on:
         default: false
 
 permissions:
-  contents: write   # nécessaire pour créer la release
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     container:
       image: pspdev/pspdev:latest
 
@@ -25,17 +26,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Installer ZIP
+        run: |
+          apt-get update
+          apt-get install -y zip
+
       - name: Build EBOOT.PBP
         run: |
           make clean || true
           make -j$(nproc)
 
+      - name: Vérifier EBOOT.PBP
+        run: |
+          if [ ! -f EBOOT.PBP ]; then
+            echo "Erreur : EBOOT.PBP introuvable !"
+            exit 1
+          fi
+          ls -lh EBOOT.PBP
+
       - name: Préparer le package
         run: |
           mkdir -p release/PSP/GAME/CitroPSP
           cp EBOOT.PBP release/PSP/GAME/CitroPSP/
-          # Si tu as des assets (ICON0.png, etc.) :
-          # cp ICON0.png PIC1.png release/PSP/GAME/CitroPSP/ 2>/dev/null || true
+
           cd release
           zip -r ../CitroPSP-${{ github.event.inputs.version }}.zip .
 
@@ -56,12 +69,16 @@ jobs:
             ## La Nuit des Citrouilles – Edition PSP
 
             ### Installation
-            1. Télécharge le fichier `.zip`
-            2. Extrais-le à la racine de ta Memory Stick (ou du dossier de PPSSPP)
-            3. Tu obtiens : `PSP/GAME/CitroPSP/EBOOT.PBP`
-            4. Lance le jeu depuis le XMB (PSP) ou depuis PPSSPP
 
-            Construit automatiquement avec le toolchain [pspdev](https://github.com/pspdev/pspdev).
+            1. Télécharge le fichier ZIP.
+            2. Extrais-le à la racine de ta Memory Stick ou du dossier PPSSPP.
+            3. Tu obtiens :
+               PSP/GAME/CitroPSP/EBOOT.PBP
+            4. Lance le jeu depuis ta PSP ou PPSSPP.
+
+            ### Compilation
+            Construit automatiquement avec PSPDEV.
+
           files: |
             EBOOT.PBP
             CitroPSP-${{ github.event.inputs.version }}.zip
