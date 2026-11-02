@@ -366,6 +366,8 @@ void gfx_init(void) {
     sceDisplaySetMode(0, SCR_W, SCR_H);
     sceDisplaySetFrameBuf(fbp1, BUF_WIDTH, PSP_DISPLAY_PIXEL_FORMAT_8888, PSP_DISPLAY_SETBUF_NEXTFRAME);
     sceGuDisplay(GU_TRUE);
+    sceDisplaySetFrameBuf((void *)(0x04000000 + 0x88000), BUF_WIDTH,
+                      PSP_DISPLAY_PIXEL_FORMAT_8888, PSP_DISPLAY_SETBUF_NEXTFRAME);
 }
 
 void gfx_begin_frame(unsigned int clear_color) {
@@ -389,7 +391,10 @@ void gfx_end_frame(void) {
     sceKernelDcacheWritebackAll();
     sceGuFinish();
     sceGuSync(0, 0);
-    sceGuSwapBuffers();
+    void *disp = sceGuSwapBuffers();
+    sceDisplaySetFrameBuf((void *)(0x04000000 + (unsigned int)disp),
+                          BUF_WIDTH, PSP_DISPLAY_PIXEL_FORMAT_8888,
+                          PSP_DISPLAY_SETBUF_NEXTFRAME);
 }
 
 void gfx_begin_3d(const V3 *cam_pos, const V3 *cam_look) {
