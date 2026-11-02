@@ -22,12 +22,17 @@ static void *tex_vram[TEX_COUNT];
 
 static void *vram_upload(const void *src, int bytes) {
     vram_cursor = (vram_cursor + 15) & ~15u;
-    memcpy((void *)(0x44000000 + vram_cursor), src, bytes);
-    void *off = (void *)vram_cursor;
-    vram_cursor += bytes;
-    return off;
-}
 
+    unsigned int offset = vram_cursor;
+
+    /* Copie des textures dans la VRAM */
+    memcpy((void *)(0x44000000 + offset), src, bytes);
+
+    vram_cursor += bytes;
+
+    /* Adresse VRAM attendue par le moteur graphique */
+    return (void *)(0x04000000 + offset);
+}
 #define FLAGS_TEX (GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D)
 #define FLAGS_COL (GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D)
 
