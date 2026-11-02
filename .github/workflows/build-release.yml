@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version du tag (ex: v1.0.0)'
+        description: 'Version du tag (ex: v1.0.3)'
         required: true
-        default: 'v1.0.0'
+        default: 'v1.0.3'
       prerelease:
         description: 'Marquer comme pré-release ?'
         type: boolean
@@ -18,7 +18,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     container:
       image: pspdev/pspdev:latest
 
@@ -26,60 +25,56 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Installer ZIP
+      - name: Outils
         run: |
           apk update
-          apk add --no-cache zip
+          apk add --no-cache zip xorriso
 
       - name: Build EBOOT.PBP
         run: |
           make clean || true
           make -j$(nproc)
 
-      - name: Vérifier EBOOT.PBP
+      - name: Vérifier
         run: |
-          if [ ! -f EBOOT.PBP ]; then
-            echo "Erreur : EBOOT.PBP introuvable !"
-            exit 1
-          fi
-          ls -lh EBOOT.PBP
+          test -f EBOOT.PBP
+          test -f CitroPSP.elf
+          test -f PARAM.SFO
 
-      - name: Préparer le package
+      - name: Créer l'ISO
+        run: |
+          rm -rf iso
+          mkdir -p iso/PSP_GAME/SYSDIR
+          cp PARAM.SFO iso/PSP_GAME/PARAM.SFO
+          cp CitroPSP.elf iso/PSP_GAME/SYSDIR/EBOOT.BIN
+          cp CitroPSP.elf iso/PSP_GAME/SYSDIR/BOOT.BIN
+          printf '%s\n' 'NPEH00001|00000000000000000000000000000000|La Nuit des Citrouilles|' > iso/UMD_DATA.BIN
+          xorriso -as mkisofs -iso-level 4 -joliet \
+            -volid "CITROPSP" \
+            -o "CitroPSP-${{ github.event.inputs.version }}.iso" \
+            iso
+
+      - name: ZIP homebrew (PSP réelle)
         run: |
           mkdir -p release/PSP/GAME/CitroPSP
           cp EBOOT.PBP release/PSP/GAME/CitroPSP/
+          (cd release && zip -r "../CitroPSP-${{ github.event.inputs.version }}.zip" .)
 
-          cd release
-          zip -r ../CitroPSP-${{ github.event.inputs.version }}.zip .
-
-      - name: Upload artifact (debug)
-        uses: actions/upload-artifact@v4
-        with:
-          name: CitroPSP-EBOOT
-          path: |
-            EBOOT.PBP
-            CitroPSP-*.zip
-
-      - name: Create GitHub Release
+      - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.version }}
           name: La Nuit des Citrouilles ${{ github.event.inputs.version }}
           body: |
-            ## La Nuit des Citrouilles – Edition PSP
+            ## Téléphone (PPSSPP)
+            Télécharge `CitroPSP-….iso` et mets-le dans le dossier des jeux de PPSSPP.
+            Il apparaît dans la liste. Rien à coller dans `PSP/GAME`.
 
-            ### Installation
-
-            1. Télécharge le fichier ZIP.
-            2. Extrais-le à la racine de ta Memory Stick ou du dossier PPSSPP.
-            3. Tu obtiens :
-               PSP/GAME/CitroPSP/EBOOT.PBP
-            4. Lance le jeu depuis ta PSP ou PPSSPP.
-
-            ### Compilation
-            Construit automatiquement avec PSPDEV.
-
+            ## PSP réelle
+            Le ZIP contient `PSP/GAME/CitroPSP/EBOOT.PBP`.
+            Extrais-le à la racine de la Memory Stick.
           files: |
+            CitroPSP-${{ github.event.inputs.version }}.iso
             EBOOT.PBP
             CitroPSP-${{ github.event.inputs.version }}.zip
           draft: false
