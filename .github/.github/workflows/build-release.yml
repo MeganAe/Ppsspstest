@@ -1,0 +1,71 @@
+name: Build & Release PSP Homebrew
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version du tag (ex: v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      prerelease:
+        description: 'Marquer comme pré-release ?'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # nécessaire pour créer la release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: pspdev/pspdev:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build EBOOT.PBP
+        run: |
+          make clean || true
+          make -j$(nproc)
+
+      - name: Préparer le package
+        run: |
+          mkdir -p release/PSP/GAME/CitroPSP
+          cp EBOOT.PBP release/PSP/GAME/CitroPSP/
+          # Si tu as des assets (ICON0.png, etc.) :
+          # cp ICON0.png PIC1.png release/PSP/GAME/CitroPSP/ 2>/dev/null || true
+          cd release
+          zip -r ../CitroPSP-${{ github.event.inputs.version }}.zip .
+
+      - name: Upload artifact (debug)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CitroPSP-EBOOT
+          path: |
+            EBOOT.PBP
+            CitroPSP-*.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: La Nuit des Citrouilles ${{ github.event.inputs.version }}
+          body: |
+            ## La Nuit des Citrouilles – Edition PSP
+
+            ### Installation
+            1. Télécharge le fichier `.zip`
+            2. Extrais-le à la racine de ta Memory Stick (ou du dossier de PPSSPP)
+            3. Tu obtiens : `PSP/GAME/CitroPSP/EBOOT.PBP`
+            4. Lance le jeu depuis le XMB (PSP) ou depuis PPSSPP
+
+            Construit automatiquement avec le toolchain [pspdev](https://github.com/pspdev/pspdev).
+          files: |
+            EBOOT.PBP
+            CitroPSP-${{ github.event.inputs.version }}.zip
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
