@@ -21,7 +21,7 @@ static unsigned int vram_cursor = 0x154000;
 static void *tex_vram[TEX_COUNT];
 
 static void *vram_upload(const void *src, int bytes) {
-    vram_cursor = (vram_cursor + 15) & \~15u;
+    vram_cursor = (vram_cursor + 15) & \~15U;
     memcpy((void *)(0x44000000 + vram_cursor), src, bytes);
     void *off = (void *)vram_cursor;
     vram_cursor += bytes;
