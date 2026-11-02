@@ -5,6 +5,7 @@
 #include <pspgu.h>
 #include <pspgum.h>
 #include <pspdisplay.h>
+#include <pspkernel.h>
 
 #include "gfx.h"
 #include "font_data.h"
@@ -20,7 +21,7 @@ static void *fzb  = (void *)0x04110000;
 #define FLAGS_COL (GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D)
 
 /* ---------------------------------------------------------------- textures */
-static unsigned int tex_data[TEX_COUNT][64 * 64];
+static unsigned int __attribute__((aligned(16))) tex_data[TEX_COUNT][64 * 64];
 static int tex_w[TEX_COUNT], tex_h[TEX_COUNT];
 
 static void set_px(int slot, int x, int y, unsigned int c) {
@@ -36,15 +37,12 @@ static void gen_pumpkin(int slot, unsigned int body, unsigned int dark) {
             float dx = (x - cx) / (float)r, dy = (y - cy) / (float)(r * 0.88f);
             float d = dx * dx + dy * dy;
             if (d > 1.0f) { set_px(slot, x, y, 0); continue; }
-            /* nervures */
             float rib = 0.85f + 0.15f * fabsf(sinf(atan2f(dy, dx) * 3.0f));
-            unsigned int col = RGB((unsigned)( ((body)     & 0xFF) * rib),
+            unsigned int col = RGB((unsigned)(((body) & 0xFF) * rib),
                                    (unsigned)((((body >> 8) & 0xFF)) * rib),
                                    (unsigned)((((body >> 16) & 0xFF)) * rib));
-            /* tige */
             if (x >= cx - 3 && x <= cx + 3 && y >= 4 && y <= 12)
                 col = RGB(70, 120, 45);
-            /* visage decoupe (yeux + bouche) */
             int face = 0;
             if (y >= 24 && y <= 32) {
                 if ((x >= 20 && x <= 27) || (x >= 37 && x <= 44)) {
@@ -70,9 +68,7 @@ static void gen_skull(int slot) {
             if (d > 1.0f) { set_px(slot, x, y, 0); continue; }
             unsigned int col = RGB(225, 225, 235);
             if (d > 0.55f) col = RGB(190, 190, 205);
-            /* machoire */
             if (y > 42 && y < 54 && x > 22 && x < 42 && d <= 1.0f) col = RGB(210, 210, 220);
-            /* orbites + nez + dents */
             if ((x - 24) * (x - 24) + (y - 26) * (y - 26) < 36 ||
                 (x - 40) * (x - 40) + (y - 26) * (y - 26) < 36) col = RGB(20, 20, 30);
             if ((x - 32) * (x - 32) + (y - 36) * (y - 36) < 8) col = RGB(20, 20, 30);
@@ -89,7 +85,6 @@ static void gen_ghost(int slot) {
             float d = dx * dx + dy * dy;
             int in = d <= 1.0f;
             if (in && y > 48) {
-                /* bas en vagues */
                 if (sinf(x * 1.4f) > 0.2f) in = 0;
             }
             if (!in) { set_px(slot, x, y, 0); continue; }
@@ -110,7 +105,7 @@ static void gen_totem(int slot) {
             if (x >= 24 && x <= 40 && y >= 8 && y <= 60) {
                 col = RGB(90, 55, 130);
                 if ((x - 32) * (x - 32) / 36.0f + (y - 22) * (y - 22) / 64.0f < 1.0f && y < 34)
-                    col = RGB(220, 220, 235); /* crane sur le poteau */
+                    col = RGB(220, 220, 235);
                 if (y < 34 && ((x - 28) * (x - 28) + (y - 20) * (y - 20) < 6 ||
                                (x - 36) * (x - 36) + (y - 20) * (y - 20) < 6))
                     col = RGB(20, 10, 30);
@@ -125,17 +120,13 @@ static void gen_player(int slot) {
     for (int y = 0; y < S; y++)
         for (int x = 0; x < S; x++) {
             unsigned int col = 0;
-            /* cape / corps */
             if (x >= 22 && x <= 42 && y >= 26 && y <= 58 && fabsf((float)(x - 32)) < 11 - (y - 26) * 0.12f)
                 col = RGB(50, 70, 140);
-            /* tete + capuche */
             float dx = (x - 32) / 11.0f, dy = (y - 17) / 12.0f;
             if (dx * dx + dy * dy <= 1.0f) col = RGB(240, 200, 160);
-            if (dx * dx + dy * dy <= 1.0f && (dy < -0.35f || fabsf(dx) > 0.75f)) col = RGB(70, 45, 120); /* capuche */
-            /* yeux */
+            if (dx * dx + dy * dy <= 1.0f && (dy < -0.35f || fabsf(dx) > 0.75f)) col = RGB(70, 45, 120);
             if ((x - 28) * (x - 28) + (y - 18) * (y - 18) < 2.5f ||
                 (x - 36) * (x - 36) + (y - 18) * (y - 18) < 2.5f) col = RGB(25, 25, 40);
-            /* petit blaster dans la main */
             if (x >= 40 && x <= 50 && y >= 38 && y <= 43) col = RGB(60, 60, 70);
             if (x >= 48 && x <= 52 && y >= 39 && y <= 42) col = RGB(30, 30, 40);
             set_px(slot, x, y, col);
@@ -231,19 +222,16 @@ static void gen_tree(int slot) {
     for (int y = 0; y < S; y++)
         for (int x = 0; x < S; x++) {
             unsigned int col = 0;
-            /* tronc */
             if (x >= 29 && x <= 35 && y >= 30 && y <= 62)
                 col = RGB(70 + (hash_noise(x, y) >> 4), 52, 36);
-            /* branchage / feuillage mort */
             float dx = (x - 32) / 24.0f, dy = (y - 22) / 20.0f;
             float d = dx * dx + dy * dy * 1.3f;
             if (d < 1.0f && y < 46) {
                 unsigned int n = hash_noise(x * 3, y * 3);
                 unsigned int v = 34 + (n >> 2);
                 col = RGB(v, v * 0.85f, v * 0.6f);
-                if (n > 200) col = RGB(v + 30, v + 20, v);   /* touches automnales */
+                if (n > 200) col = RGB(v + 30, v + 20, v);
             }
-            /* branches fines */
             if (y >= 30 && y <= 44 && abs(x - 32) < (44 - y) * 0.7f && abs(x - 32) > 2)
                 col = RGB(60, 46, 32);
             set_px(slot, x, y, col);
@@ -271,7 +259,6 @@ static Vtx mesh_cone[8 * 6];
 static int mesh_count[MESH_COUNT];
 
 static void build_meshes(void) {
-    /* cube unite : x,z dans [-0.5,0.5], y dans [0,1] */
     static const float p[8][3] = {
         {-0.5f, 0, -0.5f}, {0.5f, 0, -0.5f}, {0.5f, 1, -0.5f}, {-0.5f, 1, -0.5f},
         {-0.5f, 0, 0.5f}, {0.5f, 0, 0.5f}, {0.5f, 1, 0.5f}, {-0.5f, 1, 0.5f}
@@ -295,7 +282,6 @@ static void build_meshes(void) {
     }
     mesh_count[MESH_BOX] = vi;
 
-    /* cylindre : rayon 0.5, hauteur 1, base y=0, 8 segments */
     int SEG = 8;
     vi = 0;
     for (int s = 0; s < SEG; s++) {
@@ -308,7 +294,6 @@ static void build_meshes(void) {
         };
         for (int k = 0; k < 6; k++) mesh_cyl[vi++] = quad[k];
     }
-    /* chapeau */
     for (int s = 0; s < SEG; s++) {
         float a0 = 6.2831853f * s / SEG, a1 = 6.2831853f * (s + 1) / SEG;
         Vtx tri[3] = {
@@ -320,7 +305,6 @@ static void build_meshes(void) {
     }
     mesh_count[MESH_CYL] = vi;
 
-    /* cone : base y=0 rayon 0.5, sommet y=1 */
     vi = 0;
     for (int s = 0; s < SEG; s++) {
         float a0 = 6.2831853f * s / SEG, a1 = 6.2831853f * (s + 1) / SEG;
@@ -402,6 +386,7 @@ void gfx_begin_frame(unsigned int clear_color) {
 }
 
 void gfx_end_frame(void) {
+    sceKernelDcacheWritebackAll();
     sceGuFinish();
     sceGuSync(0, 0);
     sceGuSwapBuffers();
@@ -434,16 +419,25 @@ void gfx_begin_2d(void) {
     sceGumLoadIdentity();
 }
 
-void gfx_depth(int on) { if (on) sceGuEnable(GU_DEPTH_TEST); else sceGuDisable(GU_DEPTH_TEST); }
+void gfx_depth(int on) {
+    if (on) sceGuEnable(GU_DEPTH_TEST);
+    else sceGuDisable(GU_DEPTH_TEST);
+}
+
 void gfx_blend_alpha(void) {
     sceGuEnable(GU_BLEND);
     sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
 }
+
 void gfx_blend_add(void) {
     sceGuEnable(GU_BLEND);
     sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_FIX, 0, 0xFF);
 }
-void gfx_blend_off(void) { sceGuDisable(GU_BLEND); }
+
+void gfx_blend_off(void) {
+    sceGuDisable(GU_BLEND);
+}
+
 void gfx_fog(int on, float near, float far, unsigned int color) {
     if (on) {
         sceGuEnable(GU_FOG);
@@ -467,16 +461,21 @@ void gfx_tex(int slot, int wrap_repeat) {
     sceGuTexOffset(0.0f, 0.0f);
 }
 
-void gfx_no_tex(void) { sceGuDisable(GU_TEXTURE_2D); }
+void gfx_no_tex(void) {
+    sceGuDisable(GU_TEXTURE_2D);
+}
 
 /* ---------------------------------------------------------------- dessin */
 void gfx_mesh(int mesh, int tex, unsigned int color) {
     gfx_tex(tex, 0);
     Vtx *v = mesh == MESH_BOX ? mesh_box : (mesh == MESH_CYL ? mesh_cyl : mesh_cone);
-    /* applique la couleur aux sommets */
-    Vtx tmp[108];
     int n = mesh_count[mesh];
-    for (int i = 0; i < n; i++) { tmp[i] = v[i]; tmp[i].color = color; }
+    Vtx *tmp = (Vtx *)sceGuGetMemory(sizeof(Vtx) * n);
+    if (!tmp) return;
+    for (int i = 0; i < n; i++) {
+        tmp[i] = v[i];
+        tmp[i].color = color;
+    }
     sceGuDrawArray(GU_TRIANGLES, FLAGS_TEX, n, 0, tmp);
 }
 
@@ -494,12 +493,12 @@ void gfx_box(float x, float y, float z, float yaw, float sx, float sy, float sz,
 void gfx_billboard_uv(const V3 *c, float w, float h, int tex, float u0, float v0, float u1, float v1, unsigned int color) {
     gfx_tex(tex, 0);
     V3 r = v3scale(cam_right, w * 0.5f), u = v3scale(cam_up, h * 0.5f);
-    Vtx v[4] = {
-        {u0, v1, color, c->x - r.x - u.x, c->y - r.y - u.y, c->z - r.z - u.z},
-        {u1, v1, color, c->x + r.x - u.x, c->y + r.y - u.y, c->z + r.z - u.z},
-        {u0, v0, color, c->x - r.x + u.x, c->y - r.y + u.y, c->z - r.z + u.z},
-        {u1, v0, color, c->x + r.x + u.x, c->y + r.y + u.y, c->z + r.z + u.z}
-    };
+    Vtx *v = (Vtx *)sceGuGetMemory(sizeof(Vtx) * 4);
+    if (!v) return;
+    v[0] = (Vtx){u0, v1, color, c->x - r.x - u.x, c->y - r.y - u.y, c->z - r.z - u.z};
+    v[1] = (Vtx){u1, v1, color, c->x + r.x - u.x, c->y + r.y - u.y, c->z + r.z - u.z};
+    v[2] = (Vtx){u0, v0, color, c->x - r.x + u.x, c->y - r.y + u.y, c->z - r.z + u.z};
+    v[3] = (Vtx){u1, v0, color, c->x + r.x + u.x, c->y + r.y + u.y, c->z + r.z + u.z};
     sceGuDrawArray(GU_TRIANGLE_STRIP, FLAGS_TEX, 4, 0, v);
 }
 
@@ -510,19 +509,22 @@ void gfx_billboard(const V3 *c, float w, float h, int tex, unsigned int color) {
 void gfx_ground_quad(float x, float z, float w, float d, float y, int tex, unsigned int color, float uvrep) {
     gfx_tex(tex, uvrep > 1.0f);
     float hw = w * 0.5f, hd = d * 0.5f;
-    Vtx v[4] = {
-        {0, uvrep, color, x - hw, y, z - hd},
-        {uvrep, uvrep, color, x + hw, y, z - hd},
-        {0, 0, color, x - hw, y, z + hd},
-        {uvrep, 0, color, x + hw, y, z + hd}
-    };
+    Vtx *v = (Vtx *)sceGuGetMemory(sizeof(Vtx) * 4);
+    if (!v) return;
+    v[0] = (Vtx){0, uvrep, color, x - hw, y, z - hd};
+    v[1] = (Vtx){uvrep, uvrep, color, x + hw, y, z - hd};
+    v[2] = (Vtx){0, 0, color, x - hw, y, z + hd};
+    v[3] = (Vtx){uvrep, 0, color, x + hw, y, z + hd};
     sceGuDrawArray(GU_TRIANGLE_STRIP, FLAGS_TEX, 4, 0, v);
 }
 
 /* ---------------------------------------------------------------- texte */
 static int utf8_next(const char **s) {
     unsigned char c = (unsigned char)**s;
-    if (c < 0x80) { (*s)++; return c; }
+    if (c < 0x80) {
+        (*s)++;
+        return c;
+    }
     if ((c & 0xE0) == 0xC0 && (*s)[1]) {
         int r = ((c & 0x1F) << 6) | ((*s)[1] & 0x3F);
         *s += 2;
@@ -539,7 +541,10 @@ static int utf8_next(const char **s) {
 
 static int cp_count(const char *s) {
     int n = 0;
-    while (*s) { utf8_next(&s); n++; }
+    while (*s) {
+        utf8_next(&s);
+        n++;
+    }
     return n;
 }
 
@@ -559,12 +564,12 @@ void gfx_text(float x, float y, float scale, unsigned int color, const char *s) 
         int idx = cp - FONT_FIRST;
         float u0 = (idx % 16) / 16.0f, v0 = (idx / 16) / 16.0f;
         float u1 = u0 + 1.0f / 16.0f, v1 = v0 + 1.0f / 16.0f;
-        Vtx v[4] = {
-            {u0, v1, color, cx, y + size, 0},
-            {u1, v1, color, cx + size, y + size, 0},
-            {u0, v0, color, cx, y, 0},
-            {u1, v0, color, cx + size, y, 0}
-        };
+        Vtx *v = (Vtx *)sceGuGetMemory(sizeof(Vtx) * 4);
+        if (!v) return;
+        v[0] = (Vtx){u0, v1, color, cx, y + size, 0};
+        v[1] = (Vtx){u1, v1, color, cx + size, y + size, 0};
+        v[2] = (Vtx){u0, v0, color, cx, y, 0};
+        v[3] = (Vtx){u1, v0, color, cx + size, y, 0};
         sceGuDrawArray(GU_TRIANGLE_STRIP, FLAGS_TEX, 4, 0, v);
         cx += adv;
     }
@@ -576,12 +581,12 @@ void gfx_text_center(float cx, float y, float scale, unsigned int color, const c
 
 void gfx_rect(float x, float y, float w, float h, unsigned int color) {
     gfx_no_tex();
-    CVtx v[4] = {
-        {color, x, y + h, 0},
-        {color, x + w, y + h, 0},
-        {color, x, y, 0},
-        {color, x + w, y, 0}
-    };
+    CVtx *v = (CVtx *)sceGuGetMemory(sizeof(CVtx) * 4);
+    if (!v) return;
+    v[0] = (CVtx){color, x, y + h, 0};
+    v[1] = (CVtx){color, x + w, y + h, 0};
+    v[2] = (CVtx){color, x, y, 0};
+    v[3] = (CVtx){color, x + w, y, 0};
     sceGuDrawArray(GU_TRIANGLE_STRIP, FLAGS_COL, 4, 0, v);
 }
 
@@ -599,12 +604,12 @@ void gfx_text3d(const V3 *pos, float scale, unsigned int color, const char *s) {
         float u1 = u0 + 1.0f / 16.0f, v1 = v0 + 1.0f / 16.0f;
         V3 c = v3add(start, v3scale(cam_right, cx + adv * 0.5f));
         V3 r = v3scale(cam_right, size * 0.5f), u = v3scale(cam_up, size * 0.5f);
-        Vtx v[4] = {
-            {u0, v1, color, c.x - r.x - u.x, c.y - r.y - u.y, c.z - r.z - u.z},
-            {u1, v1, color, c.x + r.x - u.x, c.y + r.y - u.y, c.z + r.z - u.z},
-            {u0, v0, color, c.x - r.x + u.x, c.y - r.y + u.y, c.z - r.z + u.z},
-            {u1, v0, color, c.x + r.x + u.x, c.y + r.y + u.y, c.z + r.z + u.z}
-        };
+        Vtx *v = (Vtx *)sceGuGetMemory(sizeof(Vtx) * 4);
+        if (!v) return;
+        v[0] = (Vtx){u0, v1, color, c.x - r.x - u.x, c.y - r.y - u.y, c.z - r.z - u.z};
+        v[1] = (Vtx){u1, v1, color, c.x + r.x - u.x, c.y + r.y - u.y, c.z + r.z - u.z};
+        v[2] = (Vtx){u0, v0, color, c.x - r.x + u.x, c.y - r.y + u.y, c.z - r.z + u.z};
+        v[3] = (Vtx){u1, v0, color, c.x + r.x + u.x, c.y + r.y + u.y, c.z + r.z + u.z};
         sceGuDrawArray(GU_TRIANGLE_STRIP, FLAGS_TEX, 4, 0, v);
         cx += adv;
     }

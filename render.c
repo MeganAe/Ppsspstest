@@ -70,34 +70,93 @@ static void build_sky(void) {
     }
 }
 
-static void draw_sky(Game *g, float d, unsigned int sky_top, unsigned int horizon, const V3 *cam) {
+static void draw_sky(Game *g, float d, unsigned int sky_top,
+                     unsigned int horizon, const V3 *cam) {
     build_sky();
+
     gfx_depth(0);
     gfx_blend_off();
     gfx_fog(0, 0, 0, 0);
     gfx_no_tex();
-    /* cylindre de ciel centre sur la camera, degrade vertical via couleurs de sommets */
+
     sceGumPushMatrix();
+
     V3 t = {cam->x, 0, cam->z};
     sceGumTranslate(&t);
-    CVtx tmp[24 * 6];
-    for (int i = 0; i < 24 * 6; i++) {
-        tmp[i] = sky_mesh[i];
-        tmp[i].color = (sky_mesh[i].y < 50.0f) ? horizon : sky_top;
+
+    CVtx *tmp = (CVtx *)sceGuGetMemory(sizeof(CVtx) * (24 * 6));
+
+    if (tmp) {
+        for (int i = 0; i < 24 * 6; i++) {
+            tmp[i] = sky_mesh[i];
+            tmp[i].color = (sky_mesh[i].y < 50.0f)
+                ? horizon : sky_top;
+        }
+
+        sceGuDrawArray(
+            GU_TRIANGLES,
+            GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D,
+            24 * 6,
+            0,
+            tmp
+        );
     }
-    sceGuDrawArray(GU_TRIANGLES, GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D, 24 * 6, 0, tmp);
+
     sceGumPopMatrix();
 
-    /* etoiles (disparaissent a l'aube) */
     int sa = (int)((1.0f - d) * 210);
+
     if (sa > 10) {
         gfx_blend_add();
+
         for (int i = 0; i < 80; i++) {
-            V3 p = v3(cam->x + star_dir[i].x * 160, cam->y * 0.5f + star_dir[i].y * 160 + 10, cam->z + star_dir[i].z * 160);
-            gfx_billboard(&p, 0.7f, 0.7f, TEX_GLOW, RGBA(200, 215, 255, sa));
+            V3 p = v3(
+                cam->x + star_dir[i].x * 160,
+                cam->y * 0.5f + star_dir[i].y * 160 + 10,
+                cam->z + star_dir[i].z * 160
+            );
+
+            gfx_billboard(
+                &p, 0.7f, 0.7f,
+                TEX_GLOW,
+                RGBA(200, 215, 255, sa)
+            );
         }
+
         gfx_blend_off();
     }
+
+    V3 mdir = v3norm(v3(0.30f, 0.42f, -0.86f));
+
+    V3 mp = v3(
+        cam->x + mdir.x * 150,
+        cam->y + mdir.y * 150,
+        cam->z + mdir.z * 150
+    );
+
+    unsigned int mcol = fcol_lerp(C_MOON, C_SUN, d);
+
+    gfx_blend_add();
+
+    gfx_billboard(
+        &mp,
+        24.0f + 8.0f * d,
+        24.0f + 8.0f * d,
+        TEX_MOON,
+        with_alpha(mcol, 235)
+    );
+
+    gfx_billboard(
+        &mp,
+        46.0f,
+        46.0f,
+        TEX_GLOW,
+        with_alpha(mcol, (int)(60 * (1.0f - d * 0.5f)))
+    );
+
+    gfx_blend_off();
+    gfx_depth(1);
+}
 
     /* lune -> soleil */
     V3 mdir = v3norm(v3(0.30f, 0.42f, -0.86f));
