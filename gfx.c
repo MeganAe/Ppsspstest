@@ -364,10 +364,9 @@ void gfx_init(void) {
     sceGuFinish();
     sceGuSync(0, 0);
     sceDisplaySetMode(0, SCR_W, SCR_H);
-    sceDisplaySetFrameBuf(fbp1, BUF_WIDTH, PSP_DISPLAY_PIXEL_FORMAT_8888, PSP_DISPLAY_SETBUF_NEXTFRAME);
-    sceGuDisplay(GU_TRUE);
     sceDisplaySetFrameBuf((void *)(0x04000000 + 0x88000), BUF_WIDTH,
                       PSP_DISPLAY_PIXEL_FORMAT_8888, PSP_DISPLAY_SETBUF_NEXTFRAME);
+    sceGuDisplay(GU_TRUE);
 }
 
 void gfx_begin_frame(unsigned int clear_color) {
