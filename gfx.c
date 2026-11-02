@@ -13,9 +13,9 @@
 #define BUF_WIDTH 512
 
 static unsigned int __attribute__((aligned(16))) g_list[524288 / 4];
-static void *fbp0 = (void *)0x04000000;
-static void *fbp1 = (void *)0x04088000;
-static void *fzb  = (void *)0x04110000;
+static void *fbp0 = (void *)0;
+static void *fbp1 = (void *)0x88000;
+static void *fzb  = (void *)0x110000;
 
 #define FLAGS_TEX (GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D)
 #define FLAGS_COL (GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D)
