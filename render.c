@@ -153,18 +153,14 @@ static void draw_sky(Game *g, float d, unsigned int sky_top,
         TEX_GLOW,
         with_alpha(mcol, (int)(60 * (1.0f - d * 0.5f)))
     );
+gfx_billboard(
+        &mp,
+        46.0f,
+        46.0f,
+        TEX_GLOW,
+        with_alpha(mcol, (int)(60 * (1.0f - d * 0.5f)))
+    );
 
-    gfx_blend_off();
-    gfx_depth(1);
-}
-
-    /* lune -> soleil */
-    V3 mdir = v3norm(v3(0.30f, 0.42f, -0.86f));
-    V3 mp = v3(cam->x + mdir.x * 150, cam->y + mdir.y * 150, cam->z + mdir.z * 150);
-    unsigned int mcol = fcol_lerp(C_MOON, C_SUN, d);
-    gfx_blend_add();
-    gfx_billboard(&mp, 24.0f + 8.0f * d, 24.0f + 8.0f * d, TEX_MOON, with_alpha(mcol, 235));
-    gfx_billboard(&mp, 46.0f, 46.0f, TEX_GLOW, with_alpha(mcol, (int)(60 * (1.0f - d * 0.5f))));
     gfx_blend_off();
     gfx_depth(1);
 }
