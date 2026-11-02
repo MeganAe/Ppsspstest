@@ -17,6 +17,17 @@ static void *fbp0 = (void *)0;
 static void *fbp1 = (void *)0x88000;
 static void *fzb  = (void *)0x110000;
 
+static unsigned int vram_cursor = 0x154000;
+static void *tex_vram[TEX_COUNT];
+
+static void *vram_upload(const void *src, int bytes) {
+    vram_cursor = (vram_cursor + 15) & \~15u;
+    memcpy((void *)(0x44000000 + vram_cursor), src, bytes);
+    void *off = (void *)vram_cursor;
+    vram_cursor += bytes;
+    return off;
+}
+
 #define FLAGS_TEX (GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D)
 #define FLAGS_COL (GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D)
 
@@ -367,6 +378,10 @@ void gfx_init(void) {
     sceDisplaySetFrameBuf((void *)(0x04000000 + 0x88000), BUF_WIDTH,
                       PSP_DISPLAY_PIXEL_FORMAT_8888, PSP_DISPLAY_SETBUF_NEXTFRAME);
     sceGuDisplay(GU_TRUE);
+    sceKernelDcacheWritebackAll();
+    tex_vram[TEX_FONT] = vram_upload(FONT_ATLAS, 256 * 256 * 4);
+    for (int i = 1; i < TEX_COUNT; i++)
+    tex_vram[i] = vram_upload(tex_data[i], tex_w[i] * tex_h[i] * 4);
 }
 
 void gfx_begin_frame(unsigned int clear_color) {
@@ -453,10 +468,9 @@ void gfx_fog(int on, float near, float far, unsigned int color) {
 
 void gfx_tex(int slot, int wrap_repeat) {
     sceGuEnable(GU_TEXTURE_2D);
-    if (slot == TEX_FONT)
-        sceGuTexImage(0, 256, 256, 256, FONT_ATLAS);
-    else
-        sceGuTexImage(0, tex_w[slot], tex_h[slot], tex_w[slot], tex_data[slot]);
+    int w = (slot == TEX_FONT) ? 256 : tex_w[slot];
+    int h = (slot == TEX_FONT) ? 256 : tex_h[slot];
+    sceGuTexImage(0, w, h, w, tex_vram[slot]);
     sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
     sceGuTexFilter(GU_LINEAR, GU_LINEAR);
     if (wrap_repeat) sceGuTexWrap(GU_REPEAT, GU_REPEAT);
